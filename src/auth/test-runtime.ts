@@ -14,6 +14,18 @@ interface TestRuntime {
   state: TestAuthState;
 }
 
+/**
+ * Test mode replaces Postgres auth storage and email delivery with in-memory
+ * stand-ins and exposes captured magic links over HTTP. It is never honored
+ * in a production build, regardless of AUTH_TEST_MODE.
+ */
+export function isAuthTestMode(): boolean {
+  return (
+    process.env.AUTH_TEST_MODE === "true" &&
+    process.env.NODE_ENV !== "production"
+  );
+}
+
 const runtimeKey = Symbol.for("probable.auth.test-runtime");
 const globalRuntime = globalThis as typeof globalThis & {
   [runtimeKey]?: TestRuntime;

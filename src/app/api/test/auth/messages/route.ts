@@ -1,7 +1,7 @@
-import { getTestAuthRuntime } from "@/auth/test-runtime";
+import { getTestAuthRuntime, isAuthTestMode } from "@/auth/test-runtime";
 
 export async function GET() {
-  if (process.env.AUTH_TEST_MODE !== "true") {
+  if (!isAuthTestMode()) {
     return Response.json({ error: "Not found" }, { status: 404 });
   }
 

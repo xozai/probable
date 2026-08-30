@@ -3,9 +3,13 @@ import NextAuth from "next-auth";
 import { createAuthConfig } from "@/auth/config";
 import { createDatabaseAuthAdapter } from "@/auth/database-adapter";
 import { parseAllowedEmails } from "@/auth/email-policy";
-import { getTestAuthRuntime, sendTestMagicLink } from "@/auth/test-runtime";
+import {
+  getTestAuthRuntime,
+  isAuthTestMode,
+  sendTestMagicLink,
+} from "@/auth/test-runtime";
 
-const testMode = process.env.AUTH_TEST_MODE === "true";
+const testMode = isAuthTestMode();
 const testRuntime = testMode ? getTestAuthRuntime() : null;
 
 export const { auth, handlers, signIn, signOut } = NextAuth(
