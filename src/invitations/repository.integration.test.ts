@@ -6,7 +6,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { db } from "../db/client";
 import { firmInvitations, firmMembers, firms, users } from "../db/schema";
 
-import { claimInvitation, createInvitation, revokeInvitation } from "./service";
+import { claimInvitation, createInvitation, revokeInvitation } from "./repository";
 
 /**
  * Exercises the invitation flow against a real Postgres, same convention as
