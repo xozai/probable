@@ -81,3 +81,11 @@
   color: #617167;
   font-size: 0.9rem;
 }
+
+.workspaceLink {
+  display: inline-block;
+  margin-top: 1.25rem;
+  color: #245433;
+  font-weight: 700;
+  text-decoration: underline;
+}
