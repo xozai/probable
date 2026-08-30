@@ -19,6 +19,13 @@ export default defineConfig({
   webServer: {
     command: "npm run dev",
     url: "http://127.0.0.1:3000",
+    env: {
+      AUTH_ALLOWED_EMAILS: "demo.engineer@example.test",
+      AUTH_SECRET: "probable-playwright-secret-at-least-32-characters",
+      AUTH_TEST_MODE: "true",
+      AUTH_URL: "http://127.0.0.1:3000",
+      NEXTAUTH_URL: "http://127.0.0.1:3000",
+    },
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

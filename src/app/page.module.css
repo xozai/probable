@@ -44,3 +44,40 @@
   color: #617167;
   font-size: 0.9rem;
 }
+
+.session {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  color: #43554a;
+  font-size: 0.9rem;
+}
+
+.session button,
+.signIn {
+  display: inline-grid;
+  place-items: center;
+  min-height: 2.5rem;
+  margin-top: 1.5rem;
+  padding: 0 1rem;
+  border: 0;
+  border-radius: 0.55rem;
+  color: #fff;
+  background: #245433;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.session button {
+  margin-top: 0;
+}
+
+.sessionStatus {
+  margin-top: 1.5rem;
+  color: #617167;
+  font-size: 0.9rem;
+}
