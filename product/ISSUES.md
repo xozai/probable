@@ -1,6 +1,6 @@
 # Probable — v1 issue breakdown
 
-Status: **DRAFT pending Stage A resolution**. Every implementation issue is scoped to one
+Status: **A1/A2 done; A3 (Honey0) open; Stage B assignable after Codex counter-sign**. Every implementation issue is scoped to one
 focused agent-day or less. Dependencies refer to IDs in this document. Builders must still
 use one branch/worktree and PR per issue.
 
@@ -8,8 +8,8 @@ use one branch/worktree and PR per issue.
 
 | ID | Milestone | Issue | Depends on | Done when |
 |---|---|---|---|---|
-| A1 | M1 | Verify TxDOT catalog source and create normalization fixture | — | Architecture records authoritative URL, format, cadence, geography, reuse terms, fields, expected row count/checksum, and a small normalized fixture. |
-| A2 | M1 | Resolve Stage A objections and update architecture/decisions | A1 | Claude resolves every §10 objection; data model and acceptance criteria are internally consistent; Claude and Codex sign off in channel. |
+| A1 ✔ | M1 | Verify TxDOT catalog source and create normalization fixture (done: `research/txdot/TXDOT_SOURCE_SPIKE.md`) | — | Architecture records authoritative URL, format, cadence, geography, reuse terms, fields, expected row count/checksum, and a small normalized fixture. |
+| A2 ✔ | M1 | Resolve Stage A objections and update architecture/decisions (done: ARCHITECTURE v2) | A1 | Claude resolves every §10 objection; data model and acceptance criteria are internally consistent; Claude and Codex sign off in channel. |
 | A3 | M1 | Derive QA test plan from accepted criteria | A2 | Honey0 adds test IDs, preconditions, steps, and expected outcomes in `product/tests/TEST_PLAN.md`. |
 
 ## M1 — walking skeleton
