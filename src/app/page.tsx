@@ -1,4 +1,5 @@
 import styles from "./page.module.css";
+import { SessionControls } from "./session-controls";
 
 export default function Home() {
   return (
@@ -10,6 +11,7 @@ export default function Home() {
           Build consistent, regionally priced cost exhibits at every design milestone.
         </p>
         <p className={styles.status}>Walking skeleton ready.</p>
+        <SessionControls />
       </section>
     </main>
   );

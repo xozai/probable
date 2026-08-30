@@ -16,6 +16,11 @@ npm run dev
 Open <http://localhost:3000>. The production entrypoint is `npm run build` followed by
 `npm start`.
 
+Copy `.env.example` to `.env.local`, then set the database, Auth.js, Resend, and approved
+email values. `AUTH_ALLOWED_EMAILS` is a comma-separated demo allowlist; authentication
+rejects every address when it is empty. `AUTH_TEST_MODE=true` is reserved for automated
+tests and replaces both Postgres auth storage and email delivery with in-memory adapters.
+
 ## Verification
 
 ```bash
