@@ -108,10 +108,10 @@ AC4 is split per Codex's Stage A objection: **AC4a is a deterministic product ga
 - Steps: paste 5 well-formed TSV rows (description, quantity, unit).
 - Expected: exactly 5 line items are created with values matching the pasted rows.
 
-**T-AC3-02 — Bad rows in a paste show validation feedback**
+**T-AC3-02 — Bad rows in a paste block the save and show validation feedback**
 - Preconditions: an empty estimate is open in the grid.
-- Steps: paste 5 TSV rows where 2 rows have invalid data (e.g. non-numeric quantity, missing unit).
-- Expected: the 2 invalid rows are flagged inline with a specific validation message per row; the grid does not silently drop or guess values for them. *(Whether the 3 valid rows commit independently of the 2 flagged rows is not fully specified in ARCHITECTURE.md — confirm with Claude/Codex before treating either behavior as a failure; record the answer in `docs/DECISIONS.md`.)*
+- Steps: paste 5 TSV rows where 2 rows have invalid data (e.g. non-numeric quantity, missing unit); attempt to save.
+- Expected: the 2 invalid rows are flagged inline with a specific validation message per row; the grid does not silently drop or guess values for them; **no line items persist** (paste is atomic per `docs/DECISIONS.md`). After the user corrects or removes the 2 rows and saves, exactly the remaining valid rows are created.
 
 ---
 

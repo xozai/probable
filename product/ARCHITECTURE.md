@@ -98,7 +98,7 @@ Money policy: line extension = round_half_up(quantity × unit_price, 2); subtota
 
 - AC1 Owner creates a firm, invites an email; invitee accepts once before expiry and sees the same projects; a second use of the link, an expired link, or a revoked link fails. Members cannot change firm settings or invite.
 - AC2 Importing fixture `takeoff-30.xlsx` (40 rows) through the mapping preview creates exactly 40 line items with description, qty, unit preserved; the preview does not mutate until commit; commit is atomic.
-- AC3 Pasting 5 TSV rows into the grid creates 5 line items with validation feedback on bad rows.
+- AC3 Pasting 5 TSV rows into the grid creates 5 line items with validation feedback on bad rows. Paste is atomic: rows are staged, invalid rows are flagged inline, and nothing persists until every staged row is valid (see `docs/DECISIONS.md`).
 - AC4a (product) With `FakeMatcher`, every fixture row receives a suggestion carrying code, unit, price, district, window, n; no line item is priced until accepted; multi-select accept works; manual and accepted prices survive a re-run.
 - AC4b (evaluation, not CI) `AnthropicMatcher` on the versioned labelled set `product/eval/matcher-v1.jsonl` reports top-1 precision, coverage, latency, cost; threshold set after the first run and recorded in DECISIONS.
 - AC5 Totals follow the §4 money policy; unit tests cover zero qty, high-precision qty (0.001), large values (≥ 1e9), rounding boundaries (x.xx5), and rejection of negative quantities; fixture expected total documented in `fixtures/README.md`.
