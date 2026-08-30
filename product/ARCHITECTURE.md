@@ -110,3 +110,118 @@ Money math: numeric, never float. Totals computed in one pure function (`lib/est
 - Whether XLSX import column mapping needs to be persisted per firm (probably yes, cheap).
 - TxDOT data format unknown until the spike — could be PDF-only, which would push the seed to a one-time manual ETL.
 - Delta view identity: matching line items across milestones by `price_item_id` first, then normalized description — false pairs are the main UX risk.
+
+## 10. Codex Stage A review
+
+Review basis: commit `7c01927`. Verdicts below are section-by-section. An objection is
+resolved only when Claude accepts the alternative or records a different decision in
+`docs/DECISIONS.md`.
+
+### §1 Problem statement — agree, with evidence caveat
+
+The audience and workflow are sufficiently specific for a demo. The missing practitioner
+quotes are accurately disclosed and do not block engineering. Do not turn the current
+workflow description into a validated marketing claim until interviews supply evidence.
+
+### §2 v1 scope — object in four places
+
+1. **Workspace authorization:** replace the single-role assumption with `owner` and
+   `member`. Only owners may edit firm settings or invite/revoke members; both roles may
+   work on projects. Add expiring, single-use invitations. This is the smallest model that
+   makes AC1 and AC9 testable without allowing every member to control tenancy.
+2. **Sections:** use firm-editable sections with a seeded six-section default. Imported
+   rows start in `Uncategorized`; matching may suggest a section but never silently move a
+   row. Do not derive the taxonomy from TxDOT codes because an exhibit's organization is a
+   firm presentation choice, not a pricing-source property.
+3. **Import mappings:** persist a named mapping per firm and file type, while allowing an
+   import-time override. Repeated Civil 3D exports are the core workflow, so remapping every
+   milestone would preserve the drudgery the product claims to remove.
+4. **Price provenance:** a displayed price must carry source, geography, as-of date, and
+   retrieval/import date. “TxDOT” alone is not enough for a defensible exhibit.
+
+### §3 primary user flow — object to opaque bulk acceptance
+
+Keep the flow, but replace “accepts all high-confidence” with an explicit review queue.
+Confidence is a sorting aid, not an approval rule. The user may select several reviewed
+suggestions and accept them together, but the UI must show description, unit, price,
+district/geography, and as-of date before acceptance. Re-import must present a reconciliation
+preview before it mutates an estimate.
+
+### §4 data model — object; stable identity and provenance are missing
+
+Preserve the general relational model and numeric types, with these changes:
+
+- Add `firm_members.role`, `firm_invitations`, and authorization checks scoped by `firm_id`.
+- Replace estimate-owned section definitions with firm templates plus an estimate snapshot,
+  so old exports do not change when a firm later edits its defaults.
+- Add a project-level `cost_items` identity. Each `line_item` references `cost_item_id`.
+  Cloning preserves it; import reconciliation proposes links; users resolve ambiguous rows.
+  Delta comparison uses this ID only—never normalized-description fuzzy matching as truth.
+- Split price provenance into immutable `price_catalogs` (source, geography, effective
+  period, retrieved date, source URL) and `price_entries` (code, description, unit, value).
+  A line item snapshots the accepted unit price and provenance so later catalog refreshes
+  cannot rewrite a historical estimate.
+- Persist import mapping templates and import row outcomes. Keep `source_row` only as
+  diagnostic input; do not make behavior depend on undocumented JSON.
+- Define estimate uniqueness for standard milestones per project, or explicitly allow
+  revisions. Recommended: `milestone` plus integer `revision`, unique per project.
+
+Money policy: calculate each extended line amount with decimal arithmetic and round half-up
+to cents, sum rounded line amounts, then calculate and round contingency to cents. PDF,
+XLSX, UI, and tests consume the same result object.
+
+### §5 stack — agree with two substitutions
+
+Drizzle is the better default here: the model is relational, migrations must be reviewable,
+and no Prisma-only capability is required. Keep Auth.js, Next.js, Neon, Vitest, Playwright,
+React PDF, and ExcelJS.
+
+Use ExcelJS for both XLSX read/write and Papa Parse for CSV; remove SheetJS unless the import
+spike proves ExcelJS cannot read a required Civil 3D export. Pin the Anthropic model ID in
+configuration rather than using a moving “latest Sonnet-class” target. Put the model behind
+a matcher interface with a deterministic fake for acceptance tests.
+
+### §6 external dependencies — object to postponing source feasibility
+
+The TxDOT format spike is a Stage A exit dependency, not an ordinary M1 implementation
+detail: catalog schema, geography selection, AC10, and the product's “regionally priced”
+claim all depend on it. The spike must record the authoritative URL, format, update cadence,
+geographic grain, fields, reuse terms, and one checked-in normalized fixture. If automated
+retrieval is impractical, v1 may use a reviewed, versioned snapshot importer; silent manual
+copying is not acceptable provenance.
+
+### §7 acceptance criteria — object to AC4 and tighten AC5/AC7/AC10
+
+- AC1–AC3, AC6, AC8, AC9, and AC11: agree after applying the role/provenance changes above.
+- AC4: split product behavior from model quality. Product AC: a deterministic matcher fixture
+  returns suggestions, every suggestion requires explicit confirmation, and overrides
+  survive reruns. Evaluation AC: on a versioned labeled dataset, a pinned live model reports
+  top-1 precision/coverage and cost; the threshold is recorded after the TxDOT spike. A live
+  model cannot be a deterministic CI gate.
+- AC5: use the rounding order defined in §4 and add zero, negative, high-precision, and
+  overflow/boundary cases. Negative quantities may be valid credits; reject them only if
+  product intent says so.
+- AC7: expected deltas must be based on stable `cost_item_id`; ambiguous imported rows remain
+  unresolved and excluded from a final delta until a user links them.
+- AC10: replace the arbitrary ≥500 count with completeness against the chosen source snapshot
+  (expected row count and checksum in fixture metadata). A large partial import is still bad.
+
+### §8 milestones — object to sign-off sequencing, agree with the slices
+
+Keep the three milestones, but the TxDOT source spike and this review's architecture
+resolutions must finish before M1 build issues begin. M1 should prove tenant isolation and
+the shared calculation/export boundary. M2 owns catalog ingestion, imports, matching, and
+deltas. M3 is a reproducible demo build, not a production-readiness claim; `v1.0.0` should be
+tagged only after Honey0's full test run and joseleos's acceptance.
+
+### §9 risks — agree; proposed resolutions
+
+- Taxonomy: firm-editable, seeded defaults, snapshotted per estimate.
+- Mapping persistence: named, firm-scoped templates.
+- TxDOT format: Stage A spike with fixture and provenance record.
+- Delta identity: project-level stable cost-item IDs plus user reconciliation; no fuzzy
+  match silently establishes identity.
+- Drizzle versus Prisma: Drizzle.
+
+**Review status: objections outstanding.** Claude must resolve the objections and both agents
+must sign off in the channel before Stage B begins.
