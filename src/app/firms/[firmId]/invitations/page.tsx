@@ -21,12 +21,30 @@ function invitationStatus(invitation: {
   return "pending";
 }
 
+// searchParams is client-visible/editable input, so `invited` is only ever
+// rendered as a link if it is a same-origin /invite/<token> URL.
+function sanitizeInvitedUrl(value: string | undefined): string | null {
+  if (!value) return null;
+  const configuredOrigin = process.env.AUTH_URL ?? "http://localhost:3000";
+  try {
+    const parsed = new URL(value, configuredOrigin);
+    if (parsed.origin !== new URL(configuredOrigin).origin) return null;
+    if (!parsed.pathname.startsWith("/invite/")) return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
 export default async function FirmInvitationsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ firmId: string }>;
+  searchParams: Promise<{ invited?: string }>;
 }) {
   const { firmId } = await params;
+  const invitedUrl = sanitizeInvitedUrl((await searchParams).invited);
   let invitations;
   try {
     invitations = await listInvitationsForFirm(firmId);
@@ -46,6 +64,13 @@ export default async function FirmInvitationsPage({
       <section className={styles.card}>
         <p className={styles.eyebrow}>Firm workspace</p>
         <h1>Invitations</h1>
+
+        {invitedUrl ? (
+          <p>
+            Invitation sent. Share this link (shown once — it is also emailed):{" "}
+            <a href={invitedUrl}>{invitedUrl}</a>
+          </p>
+        ) : null}
 
         {invitations.length > 0 ? (
           <ul className={styles.firmList}>
