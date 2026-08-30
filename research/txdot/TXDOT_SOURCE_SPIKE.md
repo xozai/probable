@@ -40,7 +40,7 @@ $group=bid_code,bid_item_description,measurement_unit
 ## Checked-in fixture
 
 - `research/txdot/houston_low_bid_avg_2025-09_2026-08.json` / `.csv` — **2,005 entries**, retrieved 2026-08-30.
-- CSV sha256 `6d0b03065e05a62de4f8152992f45fc49b92336d96bd8266227b33d4bddc4cc1`.
+- CSV sha256 `7f69ddc0c7ec31db18dc0a1260c005e9414c6194d1b9a169dc5cf35dd7b251a7`.
 - Spot values: 110-7001 EXCAV (ROADWAY) CY wavg 12.78 (n=16); 464-7001 RC PIPE (CL III)(12 IN) LF 54.00 (n=1); 500-7001 MOBILIZATION LS 491,512 (n=87, flag LS).
 
 AC10 becomes: importer loads exactly the fixture's row count with matching checksum, fails closed otherwise.

@@ -106,7 +106,7 @@ Money policy: line extension = round_half_up(quantity × unit_price, 2); subtota
 - AC7 Delta between fixtures 30% and 60% lists exactly the documented added / removed / qty-changed / price-changed rows keyed by `cost_item_id`, with the documented total swing; unresolved rows are listed separately and excluded from the swing.
 - AC8 PDF contains logo, project name, milestone + revision, every section and line item, contingency, total, disclaimer, and seed-price attribution footer; XLSX mirrors the rows and its total cell is a live formula whose cached value equals the shared result.
 - AC9 A member of firm A requesting any firm-B resource by direct ID gets 404 for reads and mutations.
-- AC10 Seed importer loads the Houston fixture to exactly 2,005 entries with sha256 `6d0b0306…4cc1`; a truncated or altered file fails closed with no partial catalog.
+- AC10 Seed importer loads the Houston fixture to exactly 2,005 entries with sha256 `7f69ddc0…51a7`; a truncated or altered file fails closed with no partial catalog.
 - AC11 Privacy page reachable from the authenticated footer; names Anthropic and what is sent.
 - AC12 Editing a firm's section templates does not change sections of existing estimates.
 
