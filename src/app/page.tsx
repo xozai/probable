@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import styles from "./page.module.css";
 import { SessionControls } from "./session-controls";
 
@@ -12,6 +14,9 @@ export default function Home() {
         </p>
         <p className={styles.status}>Walking skeleton ready.</p>
         <SessionControls />
+        <Link className={styles.workspaceLink} href="/firms">
+          Open firm workspace
+        </Link>
       </section>
     </main>
   );

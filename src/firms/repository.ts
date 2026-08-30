@@ -1,0 +1,27 @@
+import { db } from "../db/client";
+import { firmMembers, firms } from "../db/schema";
+import type { FirmSummary } from "./service-types";
+import { validateFirmName } from "./validation";
+
+export async function createFirmForUser(
+  userId: string,
+  name: string,
+): Promise<FirmSummary> {
+  const normalizedName = validateFirmName(name);
+
+  return db.transaction(async (tx) => {
+    const [firm] = await tx
+      .insert(firms)
+      .values({ name: normalizedName })
+      .returning({ id: firms.id, name: firms.name });
+    if (!firm) throw new Error("Firm creation failed");
+
+    await tx.insert(firmMembers).values({
+      firmId: firm.id,
+      userId,
+      role: "owner",
+    });
+
+    return { ...firm, role: "owner" as const };
+  });
+}
