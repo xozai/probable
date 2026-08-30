@@ -10,6 +10,11 @@ export default defineConfig({
     baseURL: "http://127.0.0.1:3000",
     trace: "on-first-retry",
   },
+  // Dev-server (Turbopack) compiles each route on first visit; the default
+  // 5s expect() poll is too tight for a route's first hit in a growing app.
+  expect: {
+    timeout: 15_000,
+  },
   projects: [
     {
       name: "chromium",
@@ -20,7 +25,7 @@ export default defineConfig({
     command: "npm run dev",
     url: "http://127.0.0.1:3000",
     env: {
-      AUTH_ALLOWED_EMAILS: "demo.engineer@example.test",
+      AUTH_ALLOWED_EMAILS: "demo.engineer@example.test,demo.invitee@example.test",
       AUTH_SECRET: "probable-playwright-secret-at-least-32-characters",
       AUTH_TEST_MODE: "true",
       AUTH_URL: "http://127.0.0.1:3000",

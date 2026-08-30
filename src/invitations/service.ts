@@ -2,6 +2,7 @@ import { requireAuthenticatedUser, requireFirmOwner } from "../auth/authorizatio
 import { db } from "../db/client";
 
 import { InvitationNotFoundError } from "./errors";
+import { sendInvitationEmail } from "./mailer";
 import {
   claimInvitation as claimInvitationRow,
   createInvitation as createInvitationRow,
@@ -19,17 +20,28 @@ export type {
   InvitationSummary,
 } from "./repository";
 
+export interface CreatedInvitationWithUrl extends CreatedInvitation {
+  url: string;
+}
+
+function buildInvitationUrl(token: string): string {
+  return new URL(`/invite/${token}`, process.env.AUTH_URL ?? "http://localhost:3000").toString();
+}
+
 export async function createInvitationForFirm(
   firmId: string,
   email: unknown,
-): Promise<CreatedInvitation> {
+): Promise<CreatedInvitationWithUrl> {
   const access = await requireFirmOwner(firmId);
   const validEmail = validateInviteEmail(email);
-  return createInvitationRow(db, {
+  const invitation = await createInvitationRow(db, {
     firmId,
     email: validEmail,
     createdBy: access.userId,
   });
+  const url = buildInvitationUrl(invitation.token);
+  await sendInvitationEmail({ email: validEmail, url });
+  return { ...invitation, url };
 }
 
 export async function listInvitationsForFirm(
