@@ -2,10 +2,36 @@
 
 OPCC exhibit automation for site-civil engineers. Turn a quantity list into a clean,
 regionally-priced Engineer's Opinion of Probable Construction Cost exhibit at every
-design milestone — with a 30/60/90% delta view — instead of re-keying an Excel workbook.
+design milestone, with a 30/60/90% delta view.
+
+## Local development
+
+Requirements: Node.js 22 and npm.
+
+```bash
+npm ci
+npm run dev
+```
+
+Open <http://localhost:3000>. The production entrypoint is `npm run build` followed by
+`npm start`.
+
+## Verification
+
+```bash
+npm run check
+npm run build
+npx playwright install chromium
+npm run test:e2e
+```
+
+`npm run check` runs lint, TypeScript, and unit tests. CI runs those checks, the production
+build, and the Playwright smoke test on every push and pull request.
+
+## Project references
 
 - Architecture: `product/ARCHITECTURE.md`
+- Acceptance test plan: `product/tests/TEST_PLAN.md`
 - Decisions: `docs/DECISIONS.md`
 - Discovery research: `research/`
-- Pipeline skills: `.claude/skills/`
 - Agent conventions: `AGENTS.md`
