@@ -1,7 +1,7 @@
 # Probable — v1 Architecture
 
-Status: **DRAFT for Stage A review** (Claude, 2026-08-30). Codex: every section needs
-"agree" or a concrete objection + alternative. Product-intent answers from joseleos are
+Status: **v2 — Codex objections resolved** (Claude, 2026-08-30; review basis `2b99225`).
+Every §10 objection is accepted unless a resolution note below says otherwise. Product-intent answers from joseleos are
 recorded in `docs/DECISIONS.md`; assumptions I made beyond those are marked **[assumed]**.
 
 ## 1. Problem statement
@@ -22,94 +22,111 @@ Audience: site-civil / land-development PEs at 1–25-person firms, Texas first.
 ## 2. v1 scope
 
 In scope:
-- S1 Firm workspace with multiple members (invite by email, single role: member). **[assumed: one role, no admin/member split]**
-- S2 Projects, each with one or more **milestone estimates** (30/60/90/100%, plus "custom").
-- S3 Line-item entry: manual grid entry, paste-from-clipboard (TSV), and CSV/XLSX import with column mapping.
-- S4 Unit-price library: (a) seeded **TxDOT average low-bid unit prices** (public), (b) firm-private price library that overrides the seed. Each line item links to a price entry or carries a manual price with a "manual" flag.
-- S5 LLM assist: classify free-text imported descriptions to a price-library item (Claude API), with confidence; user confirms/overrides. Never auto-commits a price without a mapping the user has seen.
-- S6 Estimate math: quantity × unit price, per-section subtotals, contingency % (per estimate), total. Deterministic, server-side, tested to the cent.
-- S7 **Delta view**: compare any two milestones of a project — added / removed / quantity-changed / price-changed items and the total swing.
-- S8 Exhibit export: PDF and XLSX. Firm logo, project header, itemized table with sections, contingency, total, non-binding disclaimer text (firm-editable default).
-- S9 Privacy statement page covering LLM use.
+- S1 Firm workspace. Roles `owner` / `member`: owners edit firm settings and invite/revoke; both work on projects. Invitations are expiring (7 days), single-use, email-bound. First user of a firm is owner.
+- S2 Projects, each with **estimates** keyed by `(milestone, revision)` — milestone ∈ {30, 60, 90, 100, custom}, revision integer, unique per project. Cloning an estimate creates the next revision or a new milestone.
+- S3 Line-item entry: manual grid, paste-from-clipboard (TSV), and CSV/XLSX import with a column-mapping step. Named mapping templates persist per firm + file type; import-time override allowed.
+- S4 Price catalogs. (a) Seed catalog: **TxDOT Bid Tabulations (data.texas.gov `de7b-7dna`)**, quantity-weighted average of low-bid unit prices per bid code per district over a trailing 12-month window (see `research/txdot/TXDOT_SOURCE_SPIKE.md`). (b) Firm-private price entries, which take precedence. Every displayed price carries provenance: source, geography, window/as-of, retrieved date, source URL.
+- S5 Matching assist: a `Matcher` interface maps imported free-text rows to catalog entries with a confidence score. Production implementation = pinned Anthropic model via structured output; tests use a deterministic fake. Suggestions land in an explicit **review queue**; nothing is priced until a user accepts it with provenance visible. Overrides survive re-runs.
+- S6 Estimate math (see §4 money policy). Deterministic, server-side, one pure module.
+- S7 **Delta view** between any two estimates of a project, keyed on stable `cost_item_id`. Import reconciliation proposes links; ambiguous rows stay unresolved and are excluded from a final delta until a user links them.
+- S8 Exhibit export: PDF and XLSX. Firm logo, project header, sections, line items, contingency, total, disclaimer, and a source-attribution footer for seed prices.
+- S9 Privacy statement page (names Anthropic, what is sent, purpose).
 
 Explicit non-goals for v1:
-- PDF plan-sheet parsing / any CAD or drawing ingestion.
-- Payments, plans, trials.
+- PDF plan-sheet parsing / CAD ingestion.
+- Payments, plans, trials. Public sign-up beyond magic link.
 - CSI MasterFormat / AACE class labelling.
-- Licensed price sources (RSMeans etc.).
-- Public sign-up, email verification flows beyond magic link. **[assumed]**
+- Licensed price sources (RSMeans etc.). County-grain pricing (district only in v1).
 - Mobile layout.
 
 ## 3. Primary user flow (end to end)
 
-1. Engineer signs in (magic-link email), lands in their firm workspace.
-2. Creates project "Oak Creek Phase 2", milestone "30%".
-3. Imports `takeoff.xlsx` exported from Civil 3D → maps columns (description, qty, unit) → rows appear.
-4. Clicks "Match prices": each row gets a suggested TxDOT item + unit price with confidence; engineer accepts all high-confidence, fixes three, types a manual price for one.
-5. Sets contingency 20%, sections auto-grouped (Earthwork, Paving, Storm, Water, Sanitary, Misc) **[assumed section taxonomy — Codex please challenge]**.
-6. Exports PDF exhibit with firm logo; downloads XLSX too.
-7. Six weeks later: duplicates 30% → "60%", re-imports the new takeoff, matches, exports; opens Delta view 30%→60% and sees total moved +8.4% driven by storm-pipe quantity.
+1. Engineer signs in (magic link), lands in their firm workspace (owner created it, invited a colleague).
+2. Creates project "Oak Creek Phase 2", estimate 30% rev 1. Sections are copied from the firm's defaults (seeded six: Earthwork, Paving, Storm, Water, Sanitary, Misc; firm-editable). Imported rows start in *Uncategorized*.
+3. Imports `takeoff-30.xlsx` → picks the saved "Civil 3D takeoff" mapping → **preview** shows parsed rows with validation → commits.
+4. Runs "Suggest prices" → review queue lists each row with suggested TxDOT item, unit, district, window, weighted avg, n. Engineer accepts reviewed rows (multi-select allowed), fixes three, enters a manual price for one, drags rows into sections.
+5. Sets contingency 20 %; totals update from the shared calculation result.
+6. Exports PDF (and XLSX). Footer: "Seed unit prices: TxDOT Bid Tabulations via data.texas.gov, Houston district, lettings 2025-09-01–2026-08-31, retrieved 2026-08-30."
+7. Six weeks later: clones 30% → 60% (cost-item IDs preserved), imports `takeoff-60.xlsx` → **reconciliation preview** auto-links exact matches, asks about two ambiguous rows → commits → Delta view 30%→60% shows +8.4 % driven by storm-pipe quantity; unresolved rows are listed separately.
 
-## 4. Data model (Postgres)
+## 4. Data model (Postgres, Drizzle)
 
 ```
 firms(id, name, logo_url, disclaimer_text, created_at)
-users(id, email, name)                     -- auth via magic link
-firm_members(firm_id, user_id)             -- PK (firm_id, user_id)
-projects(id, firm_id, name, location, created_at)
-estimates(id, project_id, milestone enum('30','60','90','100','custom'), label,
-          contingency_pct numeric(5,2), status enum('draft','final'), created_at, cloned_from_id)
-sections(id, estimate_id, name, sort)
-line_items(id, estimate_id, section_id, sort, description, quantity numeric(14,3), unit text,
-           price_item_id nullable, unit_price numeric(14,2), price_source enum('seed','firm','manual'),
-           match_confidence numeric(4,3) nullable, source_row jsonb)
-price_items(id, firm_id nullable /* null = seed */, code, description, unit,
-            unit_price numeric(14,2), region text, effective_date, source_url)
-imports(id, estimate_id, filename, column_map jsonb, row_count, created_at)
+users(id, email, name)
+firm_members(firm_id, user_id, role enum('owner','member'))            PK(firm_id,user_id)
+firm_invitations(id, firm_id, email, token_hash, expires_at, accepted_at, revoked_at, created_by)
+firm_section_templates(id, firm_id, name, sort)
+import_mappings(id, firm_id, name, file_type enum('csv','xlsx'), column_map jsonb)
+projects(id, firm_id, name, location, district text, created_at)
+cost_items(id, project_id, key text, created_at)                        -- stable identity across estimates
+estimates(id, project_id, milestone enum('30','60','90','100','custom'), revision int, label,
+          contingency_pct numeric(5,2), status enum('draft','final'), cloned_from_id, created_at)
+          UNIQUE(project_id, milestone, revision)
+estimate_sections(id, estimate_id, name, sort)                         -- snapshot of firm templates
+line_items(id, estimate_id, section_id nullable, cost_item_id, sort, description,
+           quantity numeric(14,3), unit text,
+           unit_price numeric(14,2), price_source enum('seed','firm','manual'),
+           price_entry_id nullable, price_provenance jsonb,            -- snapshot: source, geography, window, retrieved_at, url, n
+           match_confidence numeric(4,3) nullable, match_status enum('unpriced','suggested','accepted','manual'))
+price_catalogs(id, firm_id nullable /* null = seed */, source text, geography text, window_from date, window_to date,
+               retrieved_at timestamptz, source_url text, row_count int, sha256 text, created_at)  -- immutable
+price_entries(id, catalog_id, code, description, unit, unit_price numeric(14,2),
+              simple_avg numeric(14,2) nullable, n_observations int nullable, total_qty numeric(18,3) nullable, is_lump_sum bool)
+imports(id, estimate_id, filename, mapping_id nullable, column_map jsonb, status, row_count, created_at)
+import_rows(id, import_id, row_no, raw jsonb, outcome enum('created','linked','skipped','error'), line_item_id nullable, message)
 ```
-Money math: numeric, never float. Totals computed in one pure function (`lib/estimate/math.ts`) and covered by unit tests; the PDF/XLSX renderers consume its output, never recompute.
+Authorization: every query is scoped by `firm_id` derived from the session; cross-firm access returns 404.
+
+Money policy: line extension = round_half_up(quantity × unit_price, 2); subtotal = Σ line extensions; contingency = round_half_up(subtotal × pct/100, 2); total = subtotal + contingency. Decimal arithmetic only (`decimal.js`), in `lib/estimate/math.ts`; PDF, XLSX, UI, and tests consume the same result object. Negative quantities are **rejected** in v1 (Claude decision; credits can be added later with a note in DECISIONS).
 
 ## 5. Stack
 
-- Next.js (App Router) + TypeScript, deployed on Vercel (free tier).
-- Postgres on Neon (free tier) via Drizzle ORM. **[assumed Drizzle over Prisma — lighter, SQL-shaped; Codex may object]**
-- Auth: Auth.js with email magic-link provider (Resend free tier for mail). **[assumed]**
-- LLM: Claude API (latest Sonnet-class model) for S5 classification, structured output, batch of ≤50 rows per call; results cached by (description, unit) hash so repeat imports don't re-spend.
-- Import parsing: `xlsx` (SheetJS) + `papaparse`.
-- Export: `@react-pdf/renderer` for PDF, `exceljs` for XLSX.
-- Tests: Vitest (unit, incl. money math), Playwright (primary flow), run in GitHub Actions CI.
+- Next.js (App Router) + TypeScript on Vercel. Postgres on Neon via Drizzle (reviewable SQL migrations).
+- Auth.js email magic link (Resend); test adapter in CI, no mail sent.
+- Import: ExcelJS (xlsx read/write) + Papa Parse (csv). No SheetJS unless the fixture proves ExcelJS insufficient.
+- Export: `@react-pdf/renderer` (PDF), ExcelJS (XLSX with live formulas).
+- Matching: `Matcher` interface; `AnthropicMatcher` with model ID pinned in config, structured output, batches ≤50 rows, cache key = hash(prompt version, schema version, model, catalog id, description, unit); `FakeMatcher` for tests.
+- Tests: Vitest (unit), Playwright (e2e), GitHub Actions. Model-quality evaluation harness is separate from CI (§7).
 
 ## 6. External dependencies
 
-- TxDOT 12-month average low-bid unit price reports (public, published per district/statewide). Seed script normalizes into `price_items` with `source_url` and `effective_date`. Exact file format and URL to be confirmed in M1 — **first spike task**.
-- Anthropic API key, Resend key, Neon connection string — Vercel env vars.
+- **TxDOT Bid Tabulations** via Socrata SODA (`https://data.texas.gov/resource/de7b-7dna.json`). Ingestion is a versioned importer run against a fixed window; each run produces an immutable `price_catalog` with row count + checksum. Fixture and provenance record: `research/txdot/`. Reuse terms recorded there; attribution printed on exhibits.
+- Anthropic API, Resend, Neon — Vercel env vars. Demo seed runs with no live email or LLM calls.
 
-## 7. Acceptance criteria (Honey0 tests against these)
+## 7. Acceptance criteria (Honey0 derives `product/tests/TEST_PLAN.md` from these)
 
-- AC1 A user can create a firm, invite a second email, and the second user sees the same projects.
-- AC2 Importing the fixture `fixtures/takeoff-30.xlsx` (40 rows) produces 40 line items with description, qty, unit preserved exactly.
-- AC3 Pasting 5 TSV rows into the grid produces 5 line items.
-- AC4 "Match prices" assigns a `price_item_id` and confidence to ≥ 90 % of fixture rows; every suggestion is editable; no line item shows a price the user has not seen.
-- AC5 Estimate total equals Σ(qty × unit_price) × (1 + contingency/100), rounded half-up to cents; verified for fixture (expected total documented in the fixture README).
-- AC6 Manual price overrides display a "manual" flag and survive re-running "Match prices".
-- AC7 Delta view between fixtures `takeoff-30.xlsx` and `takeoff-60.xlsx` lists exactly the documented added/removed/changed rows and the correct total swing.
-- AC8 PDF export contains firm logo, project name, milestone, every section and line item, contingency line, total, and disclaimer text; XLSX export has the same rows and a total cell that is a live formula.
-- AC9 A firm member cannot read another firm's project (direct URL returns 404).
-- AC10 Seed price library loads ≥ 500 TxDOT items with `source_url` populated.
-- AC11 Privacy statement page is reachable from the app footer and names the LLM provider.
+- AC1 Owner creates a firm, invites an email; invitee accepts once before expiry and sees the same projects; a second use of the link, an expired link, or a revoked link fails. Members cannot change firm settings or invite.
+- AC2 Importing fixture `takeoff-30.xlsx` (40 rows) through the mapping preview creates exactly 40 line items with description, qty, unit preserved; the preview does not mutate until commit; commit is atomic.
+- AC3 Pasting 5 TSV rows into the grid creates 5 line items with validation feedback on bad rows.
+- AC4a (product) With `FakeMatcher`, every fixture row receives a suggestion carrying code, unit, price, district, window, n; no line item is priced until accepted; multi-select accept works; manual and accepted prices survive a re-run.
+- AC4b (evaluation, not CI) `AnthropicMatcher` on the versioned labelled set `product/eval/matcher-v1.jsonl` reports top-1 precision, coverage, latency, cost; threshold set after the first run and recorded in DECISIONS.
+- AC5 Totals follow the §4 money policy; unit tests cover zero qty, high-precision qty (0.001), large values (≥ 1e9), rounding boundaries (x.xx5), and rejection of negative quantities; fixture expected total documented in `fixtures/README.md`.
+- AC6 Manual prices show a "manual" badge and are unchanged by "Suggest prices".
+- AC7 Delta between fixtures 30% and 60% lists exactly the documented added / removed / qty-changed / price-changed rows keyed by `cost_item_id`, with the documented total swing; unresolved rows are listed separately and excluded from the swing.
+- AC8 PDF contains logo, project name, milestone + revision, every section and line item, contingency, total, disclaimer, and seed-price attribution footer; XLSX mirrors the rows and its total cell is a live formula whose cached value equals the shared result.
+- AC9 A member of firm A requesting any firm-B resource by direct ID gets 404 for reads and mutations.
+- AC10 Seed importer loads the Houston fixture to exactly 2,005 entries with sha256 `7f69ddc0…51a7`; a truncated or altered file fails closed with no partial catalog.
+- AC11 Privacy page reachable from the authenticated footer; names Anthropic and what is sent.
+- AC12 Editing a firm's section templates does not change sections of existing estimates.
 
 ## 8. Milestones
 
-- **M1 walking skeleton**: auth + firm + project + manual line items + deterministic total + PDF export with hard-coded prices. TxDOT format spike done. (AC1, AC3, AC5, AC8-partial, AC9)
-- **M2 feature-complete**: XLSX/CSV import, seed library, LLM matching, firm library, delta view, XLSX export. (all ACs)
-- **M3 release candidate = demo**: fixtures polished, demo script, zero open `severity:high`. Tag `v1.0.0`.
+- **Stage A exit (now):** A1 spike ✔, A2 resolution ✔ (this doc), A3 Honey0 test plan — then Stage B.
+- **M1 walking skeleton:** app + CI, tenant schema, roles + invitations, projects/estimates, section templates + snapshot, manual/TSV grid, money module, PDF export with hard-coded prices, tenant-isolation tests, e2e. (AC1, AC3, AC5, AC8-PDF, AC9, AC12)
+- **M2 feature-complete:** catalog schema + TxDOT importer, price search, firm prices, CSV/XLSX import + mappings + transactional commit, matcher interface/fake/Anthropic, review queue, eval harness, clone with cost-item IDs, reconciliation, delta, XLSX export, privacy page, e2e. (all ACs)
+- **M3 reproducible demo:** fixtures, one-command deterministic seed/reset (no live email/LLM), demo script, accessibility/failure-state pass, Honey0 full run at a named commit, joseleos acceptance → tag `v1.0.0`.
 
-## 9. Risks / open items for Codex to press on
+## 9. Resolved risks
 
-- Section taxonomy: hard-coded list vs. derived from TxDOT item codes vs. user-defined.
-- Whether XLSX import column mapping needs to be persisted per firm (probably yes, cheap).
-- TxDOT data format unknown until the spike — could be PDF-only, which would push the seed to a one-time manual ETL.
-- Delta view identity: matching line items across milestones by `price_item_id` first, then normalized description — false pairs are the main UX risk.
+| Risk | Resolution |
+|---|---|
+| Section taxonomy | Firm-editable templates, seeded six, snapshotted per estimate; imports land in Uncategorized |
+| Mapping persistence | Named, firm + file-type scoped templates with import-time override |
+| TxDOT data format | Resolved by A1: Socrata Bid Tabulations, computed weighted low-bid averages, immutable catalogs with checksum |
+| Delta identity | Project-level `cost_items`; reconciliation proposes, user establishes; fuzzy never silently links |
+| ORM | Drizzle |
+| Price defensibility | Provenance snapshot on every priced line; attribution footer; LS items flagged non-comparable |
 
 ## 10. Codex Stage A review
 
@@ -223,5 +240,5 @@ tagged only after Honey0's full test run and joseleos's acceptance.
   match silently establishes identity.
 - Drizzle versus Prisma: Drizzle.
 
-**Review status: objections outstanding.** Claude must resolve the objections and both agents
-must sign off in the channel before Stage B begins.
+**Resolution (Claude, 2026-08-30):** all objections accepted and folded into §2–§9 above; one
+added decision — negative quantities rejected in v1. Awaiting Codex counter-sign in channel.
