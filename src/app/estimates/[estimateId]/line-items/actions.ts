@@ -66,7 +66,15 @@ export async function addLineItemAction(
   input: { description: string; quantity: string; unit: string },
 ): Promise<ActionResult<LineItemDTO>> {
   try {
-    const row = await addLineItem(estimateId, input);
+    // Server actions are network-callable RPC endpoints: a forged request
+    // could send extra fields regardless of this function's TypeScript
+    // signature, so pick exactly the allowed fields rather than passing
+    // `input` through (sectionId assignment is out of scope, see #27).
+    const row = await addLineItem(estimateId, {
+      description: input.description,
+      quantity: input.quantity,
+      unit: input.unit,
+    });
     revalidatePath(`/estimates/${estimateId}`);
     return { ok: true, data: toDTO(row) };
   } catch (error) {
@@ -81,7 +89,11 @@ export async function updateLineItemAction(
   input: { description: string; quantity: string; unit: string },
 ): Promise<ActionResult<LineItemDTO>> {
   try {
-    const row = await updateLineItem(estimateId, lineItemId, input);
+    const row = await updateLineItem(estimateId, lineItemId, {
+      description: input.description,
+      quantity: input.quantity,
+      unit: input.unit,
+    });
     revalidatePath(`/estimates/${estimateId}`);
     return { ok: true, data: toDTO(row) };
   } catch (error) {
