@@ -3,16 +3,20 @@ import Link from "next/link";
 
 import { UnauthorizedError } from "@/auth/authorization";
 import { updateEstimateAction } from "@/app/projects/actions";
+import { listLineItems } from "@/line-items/service";
 import { EstimateNotFoundError, getEstimate } from "@/projects/service";
 import { ESTIMATE_MILESTONES } from "@/projects/types";
 
+import { LineItemGrid } from "./line-items/line-item-grid";
 import styles from "../../firms/workspace.module.css";
 
 export default async function EstimatePage({ params }: { params: Promise<{ estimateId: string }> }) {
   const { estimateId } = await params;
   let row;
+  let lineItems;
   try {
     row = await getEstimate(estimateId);
+    lineItems = await listLineItems(estimateId);
   } catch (error) {
     if (error instanceof EstimateNotFoundError) notFound();
     if (error instanceof UnauthorizedError) redirect(`/sign-in?callbackUrl=/estimates/${estimateId}`);
@@ -30,5 +34,7 @@ export default async function EstimatePage({ params }: { params: Promise<{ estim
       <button type="submit">Save estimate</button>
     </form>
     <p><Link href={`/projects/${row.project.id}`}>Back to project</Link></p>
-  </section></main>;
+  </section>
+  <LineItemGrid estimateId={estimateId} initialItems={lineItems} />
+  </main>;
 }

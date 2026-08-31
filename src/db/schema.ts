@@ -215,9 +215,14 @@ export const lineItems = pgTable(
     sectionId: uuid("section_id").references(() => estimateSections.id, {
       onDelete: "set null",
     }),
+    // Cascade (not the app-facing direction, but required for referential
+    // consistency): cost_items also cascades from projects, and without this
+    // a project/firm delete can fail depending on cascade evaluation order
+    // (cost_items removed while a line_item still references it). App code
+    // never deletes a cost_item directly.
     costItemId: uuid("cost_item_id")
       .notNull()
-      .references(() => costItems.id),
+      .references(() => costItems.id, { onDelete: "cascade" }),
     sort: integer("sort").notNull(),
     description: text("description").notNull(),
     quantity: numeric("quantity", { precision: 14, scale: 3 }).notNull(),
