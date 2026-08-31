@@ -120,6 +120,24 @@ export const firmInvitations = pgTable("firm_invitations", {
     .defaultNow(),
 });
 
+export const firmSectionTemplates = pgTable(
+  "firm_section_templates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    firmId: uuid("firm_id")
+      .notNull()
+      .references(() => firms.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    sort: integer("sort").notNull(),
+  },
+  (table) => [
+    unique("firm_section_templates_firm_sort_unique").on(
+      table.firmId,
+      table.sort,
+    ),
+  ],
+);
+
 export const projects = pgTable("projects", {
   id: uuid("id").primaryKey().defaultRandom(),
   firmId: uuid("firm_id")

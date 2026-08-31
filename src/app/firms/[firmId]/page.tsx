@@ -39,6 +39,11 @@ export default async function FirmPage({
         <p>
           Your access level is <strong>{access.role}</strong>.
         </p>
+        {access.role === "owner" ? (
+          <p>
+            <Link href={`/firms/${firmId}/sections`}>Edit section defaults</Link>
+          </p>
+        ) : null}
         {firmProjects.length ? (
           <ul className={styles.list}>
             {firmProjects.map((project) => (
