@@ -11,7 +11,7 @@ import {
   updateLineItemAction,
   type LineItemDTO,
 } from "./actions";
-import styles from "../../firms/workspace.module.css";
+import styles from "../../../firms/workspace.module.css";
 
 interface StagedRow {
   index: number;
