@@ -85,4 +85,55 @@ describeWithDatabase("project and estimate CRUD", () => {
     await expect(getEstimate(crypto.randomUUID())).rejects.toBeInstanceOf(EstimateNotFoundError);
     await expect(listProjects(secondFirmId)).rejects.toBeInstanceOf(FirmNotFoundError);
   });
+
+  // T-AC9-02: a cross-firm *mutation* (not just a read) must also 404 and
+  // must leave the other firm's resource byte-for-byte unchanged.
+  it("rejects cross-firm mutations to a project or estimate and leaves them unchanged", async () => {
+    const { projects: projectsTable, estimates: estimatesTable } = await import("../db/schema");
+
+    const [otherProject] = await db
+      .insert(projectsTable)
+      .values({ firmId: secondFirmId, name: "Other Firm's Secret Project", location: "Dallas" })
+      .returning();
+    if (!otherProject) throw new Error("Other project creation failed");
+
+    const [otherEstimate] = await db
+      .insert(estimatesTable)
+      .values({ projectId: otherProject.id, milestone: "30", revision: 1, contingencyPct: "10" })
+      .returning();
+    if (!otherEstimate) throw new Error("Other estimate creation failed");
+
+    await expect(
+      updateProject(otherProject.id, { name: "Hijacked Name", location: "Austin" }),
+    ).rejects.toBeInstanceOf(ProjectNotFoundError);
+
+    await expect(
+      updateEstimate(otherEstimate.id, {
+        milestone: "60",
+        revision: 1,
+        label: "Hijacked",
+        contingencyPct: "99",
+      }),
+    ).rejects.toBeInstanceOf(EstimateNotFoundError);
+
+    const [reloadedProject] = await db
+      .select()
+      .from(projectsTable)
+      .where(eq(projectsTable.id, otherProject.id));
+    expect(reloadedProject).toMatchObject({
+      name: "Other Firm's Secret Project",
+      location: "Dallas",
+    });
+
+    const [reloadedEstimate] = await db
+      .select()
+      .from(estimatesTable)
+      .where(eq(estimatesTable.id, otherEstimate.id));
+    expect(reloadedEstimate).toMatchObject({
+      milestone: "30",
+      revision: 1,
+      label: null,
+      contingencyPct: "10.00",
+    });
+  });
 });
