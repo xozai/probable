@@ -38,6 +38,7 @@ export default async function EstimatePage({ params }: { params: Promise<{ estim
       <label>Contingency (%)<input name="contingencyPct" type="number" min="0" max="100" step="0.01" defaultValue={row.estimate.contingencyPct} required /></label>
       <button type="submit">Save estimate</button>
     </form>
+    <p><Link href={`/estimates/${estimateId}/export/pdf`}>Download PDF exhibit</Link></p>
     <p><Link href={`/projects/${row.project.id}`}>Back to project</Link></p>
   </section>
   <LineItemGrid

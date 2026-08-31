@@ -16,6 +16,7 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
+    "@react-pdf/renderer": "^4.9.0",
     "decimal.js": "^10.4.3",
     "drizzle-orm": "^0.45.2",
     "next": "16.3.3",

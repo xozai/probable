@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 
 interface TestAuthMessageResponse {
   messages: Array<{ identifier: string; url: string }>;
@@ -54,6 +55,16 @@ test("priced line items render section and estimate totals from the shared calcu
   await expect(page.getByText("$22.00")).toBeVisible();
   await expect(page.getByText("Earthwork subtotal")).toBeVisible();
   await expect(page.getByText(/unpriced .* excluded from totals/)).toHaveCount(0);
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("link", { name: "Download PDF exhibit" }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("totals-project-30-percent-rev-1.pdf");
+  const downloadPath = await download.path();
+  if (!downloadPath) throw new Error("PDF download did not produce a local file");
+  const pdf = await readFile(downloadPath);
+  expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
+
   await expect(page.locator("[data-nextjs-dialog]")).toHaveCount(0);
   expect(consoleErrors).toEqual([]);
 });
