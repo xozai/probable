@@ -1,6 +1,11 @@
 import { eq } from "drizzle-orm";
 
-import { FirmNotFoundError, isFirmId, requireFirmMember } from "../auth/authorization";
+import {
+  FirmNotFoundError,
+  isFirmId,
+  requireAuthenticatedUser,
+  requireFirmMember,
+} from "../auth/authorization";
 import { db } from "../db/client";
 import { estimates, projects } from "../db/schema";
 import { EstimateNotFoundError } from "../projects/service";
@@ -30,6 +35,9 @@ export class PasteValidationError extends Error {
 // Tenancy derived independently per resource module (estimate -> project ->
 // firm), same shape as src/projects/service.ts's loadEstimateForMember.
 async function loadEstimateForMember(estimateId: string) {
+  // Auth before existence: mirrors the fix in src/projects/service.ts's
+  // loadEstimateForMember (see #33 item 2) — same shape, separate module.
+  await requireAuthenticatedUser();
   if (!isFirmId(estimateId)) throw new EstimateNotFoundError();
   const [row] = await db
     .select({ estimate: estimates, project: projects })
@@ -104,6 +112,21 @@ export async function deleteLineItem(estimateId: string, lineItemId: string) {
 
 export async function reorderLineItems(estimateId: string, orderedIds: string[]) {
   await loadEstimateForMember(estimateId);
+  // reorderLineItemRows assigns sort = array index; a partial or duplicate
+  // orderedIds list would leave excluded rows' old sort values colliding
+  // with the newly assigned ones, producing ambiguous ordering (see #33
+  // item 5). Require orderedIds to be exactly the current row set, once
+  // each, before touching the database.
+  const existingRows = await repository.listLineItemRows(db, estimateId);
+  const existingIds = new Set(existingRows.map((row) => row.id));
+  const uniqueOrderedIds = new Set(orderedIds);
+  const isCompletePermutation =
+    uniqueOrderedIds.size === orderedIds.length &&
+    uniqueOrderedIds.size === existingIds.size &&
+    orderedIds.every((id) => existingIds.has(id));
+  if (!isCompletePermutation) {
+    throw new LineItemValidationError("Reorder list must include every line item exactly once");
+  }
   await repository.reorderLineItemRows(db, { estimateId, orderedIds });
 }
 

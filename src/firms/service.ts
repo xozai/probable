@@ -13,7 +13,7 @@ import { validateFirmName } from "./validation";
 
 export type { FirmSettingsInput, FirmSummary } from "./service-types";
 export { createFirmForUser } from "./repository";
-export { validateFirmName } from "./validation";
+export { FirmValidationError, validateFirmName } from "./validation";
 
 export async function createFirmForCurrentUser(name: string): Promise<FirmSummary> {
   const user = await requireAuthenticatedUser();

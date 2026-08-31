@@ -16,6 +16,7 @@ vi.mock("../auth/authorization", async () => {
   const policy = await vi.importActual<typeof import("../auth/authorization-policy")>("../auth/authorization-policy");
   return {
     ...policy,
+    requireAuthenticatedUser: vi.fn(async () => ({ userId: "test-user", email: "member@example.test" })),
     requireFirmMember: vi.fn(async (firmId: string) => {
       if (firmId !== allowedFirmId) throw new policy.FirmNotFoundError();
       return { userId: "test-user", email: "member@example.test", firmId, role: "member" as const };
@@ -24,6 +25,7 @@ vi.mock("../auth/authorization", async () => {
 });
 
 import { EstimateNotFoundError } from "../projects/service";
+import { LineItemValidationError } from "./validation";
 import {
   addLineItem,
   deleteLineItem,
@@ -120,6 +122,24 @@ describeWithDatabase("line item manual and TSV-paste grid", () => {
       LineItemNotFoundError,
     );
     await expect(deleteLineItem(estimateId, second.id)).rejects.toBeInstanceOf(LineItemNotFoundError);
+  });
+
+  it("#33 item 5: rejects a partial or duplicate reorder list instead of producing duplicate sort values", async () => {
+    const first = await addLineItem(estimateId, { description: "Reorder A", quantity: "1", unit: "EA" });
+    await addLineItem(estimateId, { description: "Reorder B", quantity: "1", unit: "EA" });
+    const before = await listLineItems(estimateId);
+
+    // Partial: omits every other existing row in this estimate.
+    await expect(reorderLineItems(estimateId, [first.id])).rejects.toBeInstanceOf(LineItemValidationError);
+    // Duplicate: same id twice, still short of the full set.
+    await expect(reorderLineItems(estimateId, [first.id, first.id])).rejects.toBeInstanceOf(
+      LineItemValidationError,
+    );
+
+    // Rejected reorders must not have touched sort or row identity.
+    const after = await listLineItems(estimateId);
+    expect(after).toEqual(before);
+    expect(after.map((row) => row.sort)).toEqual([...new Set(after.map((row) => row.sort))]);
   });
 
   it("persists manual prices and only sections from the same estimate", async () => {

@@ -1,6 +1,11 @@
 import { and, asc, eq } from "drizzle-orm";
 
-import { FirmNotFoundError, isFirmId, requireFirmMember } from "../auth/authorization";
+import {
+  FirmNotFoundError,
+  isFirmId,
+  requireAuthenticatedUser,
+  requireFirmMember,
+} from "../auth/authorization";
 import { db } from "../db/client";
 import {
   estimates,
@@ -10,6 +15,8 @@ import {
 } from "../db/schema";
 import type { EstimateInput, ProjectInput } from "./types";
 import { validateEstimateInput, validateProjectInput } from "./validation";
+
+export { ProjectValidationError } from "./validation";
 
 export class ProjectNotFoundError extends Error {
   readonly status = 404;
@@ -45,6 +52,10 @@ function isUniqueViolation(error: unknown): boolean {
 }
 
 async function loadProjectForMember(projectId: string) {
+  // Auth before existence: an unauthenticated caller must get the same
+  // UnauthorizedError for a real UUID as for a made-up one, otherwise the
+  // resource lookup below becomes an existence oracle (see #33 item 2).
+  await requireAuthenticatedUser();
   if (!isFirmId(projectId)) throw new ProjectNotFoundError();
   const [project] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
   if (!project) throw new ProjectNotFoundError();
@@ -58,6 +69,8 @@ async function loadProjectForMember(projectId: string) {
 }
 
 async function loadEstimateForMember(estimateId: string) {
+  // Same ordering fix as loadProjectForMember above.
+  await requireAuthenticatedUser();
   if (!isFirmId(estimateId)) throw new EstimateNotFoundError();
   const [row] = await db
     .select({ estimate: estimates, project: projects })

@@ -46,6 +46,15 @@
   text-transform: capitalize;
 }
 
+.error {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #c94c3a;
+  border-radius: 0.5rem;
+  color: #7a2416;
+  background: #fbe9e6;
+}
+
 .form {
   display: grid;
   gap: 0.75rem;

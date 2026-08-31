@@ -47,8 +47,11 @@ async function sendInvitation(page: Page, firmId: string, email: string): Promis
   await page.goto(`/firms/${firmId}/invitations`);
   await page.getByLabel("Invite by email").fill(email);
   await page.getByRole("button", { name: "Send invite" }).click();
-  await expect(page).toHaveURL(/invited=/);
   await expect(page.getByText("Invitation sent.")).toBeVisible();
+  // The show-once link is flashed via ?invited= on the redirect response,
+  // then stripped from the URL shortly after render so it doesn't sit in
+  // browser history/bookmarks (#33 item 4).
+  await expect.poll(() => page.url()).not.toContain("invited=");
 
   const invitationsResponse = await page.request.get("/api/test/invitations/messages");
   const { messages } = (await invitationsResponse.json()) as TestInvitationMessageResponse;
@@ -113,8 +116,8 @@ test("T-AC1-05: a revoked invitation fails on accept", async ({ page }) => {
   const firmId = await createFirm(page, "Revoke Test Firm");
   const invitationUrl = await sendInvitation(page, firmId, "demo.invitee@example.test");
 
-  // We just landed back on the invitations list (?invited=...); the invite
-  // is still pending, so its Revoke button is on this same page.
+  // We just landed back on the invitations list; the invite is still
+  // pending, so its Revoke button is on this same page.
   await page.getByRole("button", { name: "Revoke" }).click();
   await expect(page).toHaveURL(new RegExp(`/firms/${firmId}/invitations$`));
   await expect(page.getByText(/revoked/)).toBeVisible();

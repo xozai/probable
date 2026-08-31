@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 
+import { FlashCleanup } from "@/app/flash-cleanup";
 import {
   FirmForbiddenError,
   FirmNotFoundError,
@@ -13,10 +14,13 @@ import { updateSectionTemplatesAction } from "./actions";
 
 export default async function FirmSectionsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ firmId: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const { firmId } = await params;
+  const { error: errorMessage } = await searchParams;
   let templates;
   try {
     await requireFirmOwner(firmId);
@@ -33,9 +37,15 @@ export default async function FirmSectionsPage({
   return (
     <main className={styles.page}>
       <section className={styles.card}>
+        <FlashCleanup active={Boolean(errorMessage)} />
         <p className={styles.eyebrow}>Firm settings</p>
         <h1>Estimate section defaults</h1>
         <p>Enter one section per line. New estimates receive a snapshot of this ordered list.</p>
+        {errorMessage ? (
+          <p className={styles.error} role="alert">
+            {errorMessage}
+          </p>
+        ) : null}
         <form
           action={updateSectionTemplatesAction.bind(null, firmId)}
           className={styles.form}

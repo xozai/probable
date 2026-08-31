@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 
+import { FlashCleanup } from "@/app/flash-cleanup";
 import {
   FirmNotFoundError,
   requireFirmMember,
@@ -13,10 +14,13 @@ import styles from "../workspace.module.css";
 
 export default async function FirmPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ firmId: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const { firmId } = await params;
+  const { error: errorMessage } = await searchParams;
   let access;
   try {
     access = await requireFirmMember(firmId);
@@ -34,8 +38,14 @@ export default async function FirmPage({
   return (
     <main className={styles.page}>
       <section className={styles.card}>
+        <FlashCleanup active={Boolean(errorMessage)} />
         <p className={styles.eyebrow}>Firm workspace</p>
         <h1>Projects</h1>
+        {errorMessage ? (
+          <p className={styles.error} role="alert">
+            {errorMessage}
+          </p>
+        ) : null}
         <p>
           Your access level is <strong>{access.role}</strong>.
         </p>
