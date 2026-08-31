@@ -72,14 +72,14 @@ test("manual add/edit/delete a line item persists through the real UI", async ({
   // Add.
   await page.getByLabel("Description").fill("Clearing and grubbing");
   await page.getByLabel("Quantity").fill("1");
-  await page.getByLabel("Unit").fill("LS");
+  await page.getByLabel("Unit", { exact: true }).fill("LS");
   await page.getByRole("button", { name: "Add line item" }).click();
 
   const row = page.locator("table tbody tr").first();
   await expect(row).toBeVisible();
   await expect(row.getByLabel("Description")).toHaveValue("Clearing and grubbing");
   await expect(row.getByLabel("Quantity")).toHaveValue("1.000");
-  await expect(row.getByLabel("Unit")).toHaveValue("LS");
+  await expect(row.getByLabel("Unit", { exact: true })).toHaveValue("LS");
 
   // Edit: change the description and blur to commit, then reload to prove
   // it was persisted server-side, not just held in local state.
@@ -128,7 +128,7 @@ test("T-AC3-01: pasting 5 valid TSV rows creates matching line items", async ({ 
     const row = dataRows.nth(i);
     await expect(row.getByLabel("Description")).toHaveValue(description);
     await expect(row.getByLabel("Quantity")).toHaveValue(Number(quantity).toFixed(3));
-    await expect(row.getByLabel("Unit")).toHaveValue(unit);
+    await expect(row.getByLabel("Unit", { exact: true })).toHaveValue(unit);
   }
 
   // Staged preview clears after a successful save.
