@@ -63,7 +63,7 @@ export async function listLineItemsAction(estimateId: string): Promise<ActionRes
 
 export async function addLineItemAction(
   estimateId: string,
-  input: { description: string; quantity: string; unit: string; sectionId?: string | null },
+  input: { description: string; quantity: string; unit: string },
 ): Promise<ActionResult<LineItemDTO>> {
   try {
     const row = await addLineItem(estimateId, input);
@@ -78,7 +78,7 @@ export async function addLineItemAction(
 export async function updateLineItemAction(
   estimateId: string,
   lineItemId: string,
-  input: { description: string; quantity: string; unit: string; sectionId?: string | null },
+  input: { description: string; quantity: string; unit: string },
 ): Promise<ActionResult<LineItemDTO>> {
   try {
     const row = await updateLineItem(estimateId, lineItemId, input);
