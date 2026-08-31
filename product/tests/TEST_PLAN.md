@@ -27,7 +27,7 @@ AC4 is split per Codex's Stage A objection: **AC4a is a deterministic product ga
 
 | AC | Feature | Milestone | Test IDs |
 |---|---|---|---|
-| AC1 | Firm roles + invitations | M1 | T-AC1-01…07 |
+| AC1 | Firm roles + invitations | M1 | T-AC1-01…08 |
 | AC2 | CSV/XLSX import via mapping preview | M2 | T-AC2-01…03 |
 | AC3 | Manual + TSV paste grid | M1 | T-AC3-01…02 |
 | AC4a | Matching — product behavior (FakeMatcher) | M2 | T-AC4a-01…04 |
@@ -79,6 +79,11 @@ AC4 is split per Codex's Stage A objection: **AC4a is a deterministic product ga
 - Preconditions: user is a `member` of firm F.
 - Steps: member attempts to send an invitation and to revoke an existing one.
 - Expected: both actions are rejected; no invitation row is created or altered.
+
+**T-AC1-08 — Invitation accepted by a different email than invited fails**
+- Preconditions: an invitation exists for `invited@example.test`; a signed-in user with a different email (e.g. `demo.invitee@example.test`) opens it.
+- Steps: the signed-in user (whose email does not match the invitation) opens the invitation link and attempts to accept.
+- Expected: acceptance fails with an email-mismatch message; no membership is created; the invitation remains available to the originally invited email.
 
 ---
 
