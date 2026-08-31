@@ -2,7 +2,9 @@
 
 import { redirect } from "next/navigation";
 
+import { withErrorFlash } from "@/app/error-flash";
 import { replaceFirmSectionTemplates } from "@/sections/service";
+import { SectionValidationError } from "@/sections/validation";
 
 export async function updateSectionTemplatesAction(
   firmId: string,
@@ -13,6 +15,13 @@ export async function updateSectionTemplatesAction(
     typeof raw === "string"
       ? raw.split("\n").filter((name) => name.trim().length > 0)
       : [];
-  await replaceFirmSectionTemplates(firmId, names);
+  try {
+    await replaceFirmSectionTemplates(firmId, names);
+  } catch (error) {
+    if (error instanceof SectionValidationError) {
+      redirect(withErrorFlash(`/firms/${firmId}/sections`, error.message));
+    }
+    throw error;
+  }
   redirect(`/firms/${firmId}/sections`);
 }

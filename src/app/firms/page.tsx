@@ -1,13 +1,19 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { FlashCleanup } from "@/app/flash-cleanup";
 import { UnauthorizedError } from "@/auth/authorization";
 import { listFirmsForCurrentUser } from "@/firms/service";
 
 import { createFirmAction } from "./actions";
 import styles from "./workspace.module.css";
 
-export default async function FirmsPage() {
+export default async function FirmsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error: errorMessage } = await searchParams;
   let memberships;
   try {
     memberships = await listFirmsForCurrentUser();
@@ -19,8 +25,14 @@ export default async function FirmsPage() {
   return (
     <main className={styles.page}>
       <section className={styles.card}>
+        <FlashCleanup active={Boolean(errorMessage)} />
         <p className={styles.eyebrow}>Probable</p>
         <h1>Firm workspace</h1>
+        {errorMessage ? (
+          <p className={styles.error} role="alert">
+            {errorMessage}
+          </p>
+        ) : null}
         {memberships.length > 0 ? (
           <ul className={styles.firmList}>
             {memberships.map((firm) => (

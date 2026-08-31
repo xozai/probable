@@ -1,7 +1,7 @@
 import { requireAuthenticatedUser, requireFirmOwner } from "../auth/authorization";
 import { db } from "../db/client";
 
-import { InvitationNotFoundError } from "./errors";
+import { InvitationEmailError, InvitationNotFoundError } from "./errors";
 import { sendInvitationEmail } from "./mailer";
 import {
   claimInvitation as claimInvitationRow,
@@ -40,7 +40,14 @@ export async function createInvitationForFirm(
     createdBy: access.userId,
   });
   const url = buildInvitationUrl(invitation.token);
-  await sendInvitationEmail({ email: validEmail, url });
+  try {
+    await sendInvitationEmail({ email: validEmail, url });
+  } catch (error) {
+    // The invitation row is already committed; surface the failure instead
+    // of letting it escape as a raw 500 with no indication a pending
+    // invitation now exists (see #33 item 3).
+    throw new InvitationEmailError(validEmail, error);
+  }
   return { ...invitation, url };
 }
 

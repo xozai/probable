@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 
+import { FlashCleanup } from "@/app/flash-cleanup";
 import { FirmNotFoundError, UnauthorizedError } from "@/auth/authorization";
 import { createEstimateAction, updateProjectAction } from "@/app/projects/actions";
 import { getProject, ProjectNotFoundError } from "@/projects/service";
@@ -8,8 +9,15 @@ import { ESTIMATE_MILESTONES } from "@/projects/types";
 
 import styles from "../../firms/workspace.module.css";
 
-export default async function ProjectPage({ params }: { params: Promise<{ projectId: string }> }) {
+export default async function ProjectPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ projectId: string }>;
+  searchParams: Promise<{ error?: string }>;
+}) {
   const { projectId } = await params;
+  const { error: errorMessage } = await searchParams;
   let project;
   try {
     project = await getProject(projectId);
@@ -22,8 +30,10 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
   const addEstimate = createEstimateAction.bind(null, projectId);
 
   return <main className={styles.page}><section className={styles.card}>
+    <FlashCleanup active={Boolean(errorMessage)} />
     <p className={styles.eyebrow}>Project workspace</p>
     <h1>{project.name}</h1>
+    {errorMessage ? <p className={styles.error} role="alert">{errorMessage}</p> : null}
     <form action={saveProject} className={styles.form}>
       <label>Name<input name="name" required maxLength={120} defaultValue={project.name} /></label>
       <label>Location<input name="location" maxLength={160} defaultValue={project.location ?? ""} /></label>

@@ -14,6 +14,7 @@ import {
 } from "@/line-items/service";
 import { LineItemValidationError } from "@/line-items/validation";
 import type { PasteRowError } from "@/line-items/tsv";
+import { EstimateNotFoundError } from "@/projects/service";
 
 export interface LineItemDTO {
   id: string;
@@ -64,7 +65,8 @@ export async function listLineItemsAction(estimateId: string): Promise<ActionRes
   try {
     const rows = await listLineItems(estimateId);
     return { ok: true, data: rows.map(toDTO) };
-  } catch {
+  } catch (error) {
+    if (error instanceof EstimateNotFoundError) return { ok: false, error: error.message };
     return { ok: false, error: "Could not load line items" };
   }
 }
@@ -89,6 +91,7 @@ export async function addLineItemAction(
     return { ok: true, data: toDTO(row) };
   } catch (error) {
     if (error instanceof LineItemValidationError) return { ok: false, error: error.message };
+    if (error instanceof EstimateNotFoundError) return { ok: false, error: error.message };
     return { ok: false, error: "Could not add line item" };
   }
 }
@@ -111,6 +114,7 @@ export async function updateLineItemAction(
   } catch (error) {
     if (error instanceof LineItemValidationError) return { ok: false, error: error.message };
     if (error instanceof LineItemNotFoundError) return { ok: false, error: error.message };
+    if (error instanceof EstimateNotFoundError) return { ok: false, error: error.message };
     return { ok: false, error: "Could not update line item" };
   }
 }
@@ -122,6 +126,7 @@ export async function deleteLineItemAction(estimateId: string, lineItemId: strin
     return { ok: true, data: null };
   } catch (error) {
     if (error instanceof LineItemNotFoundError) return { ok: false, error: error.message };
+    if (error instanceof EstimateNotFoundError) return { ok: false, error: error.message };
     return { ok: false, error: "Could not delete line item" };
   }
 }
@@ -131,7 +136,9 @@ export async function reorderLineItemsAction(estimateId: string, orderedIds: str
     await reorderLineItems(estimateId, orderedIds);
     revalidatePath(`/estimates/${estimateId}`);
     return { ok: true, data: null };
-  } catch {
+  } catch (error) {
+    if (error instanceof LineItemValidationError) return { ok: false, error: error.message };
+    if (error instanceof EstimateNotFoundError) return { ok: false, error: error.message };
     return { ok: false, error: "Could not reorder line items" };
   }
 }
@@ -144,6 +151,9 @@ export async function pasteLineItemsAction(estimateId: string, text: string): Pr
   } catch (error) {
     if (error instanceof PasteValidationError) {
       return { ok: false, error: error.message, rowErrors: error.rowErrors };
+    }
+    if (error instanceof EstimateNotFoundError) {
+      return { ok: false, error: error.message, rowErrors: [] };
     }
     return { ok: false, error: "Could not paste line items", rowErrors: [] };
   }

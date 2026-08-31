@@ -20,6 +20,7 @@ vi.mock("../../../../auth/authorization", async () => {
   );
   return {
     ...policy,
+    requireAuthenticatedUser: vi.fn(async () => ({ userId: "test-user", email: "member@example.test" })),
     requireFirmMember: vi.fn(async (firmId: string) => {
       if (firmId !== allowedFirmId) throw new policy.FirmNotFoundError();
       return { userId: "test-user", email: "member@example.test", firmId, role: "member" as const };

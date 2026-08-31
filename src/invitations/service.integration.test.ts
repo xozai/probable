@@ -4,12 +4,15 @@ import { eq } from "drizzle-orm";
 import { afterAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("../auth", () => ({ auth: vi.fn() }));
+vi.mock("./mailer", () => ({ sendInvitationEmail: vi.fn() }));
 
 import { auth } from "../auth";
 import { db } from "../db/client";
 import { FirmForbiddenError } from "../auth/authorization-policy";
 import { firmInvitations, firmMembers, firms, users } from "../db/schema";
 
+import { sendInvitationEmail } from "./mailer";
+import { InvitationEmailError } from "./errors";
 import { createInvitation as createInvitationRow } from "./repository";
 import {
   createInvitationForFirm,
@@ -96,5 +99,24 @@ describe.skipIf(!process.env.DATABASE_URL)("invitations service (integration)", 
     mockSessionEmail(member.email);
 
     await expect(listInvitationsForFirm(firm.id)).rejects.toBeInstanceOf(FirmForbiddenError);
+  });
+
+  it("#33 item 3: surfaces an email-send failure instead of a raw 500, leaving the pending invitation revokable", async () => {
+    const { firm, owner } = await makeFirmWithOwnerAndMember();
+    mockSessionEmail(owner.email);
+    vi.mocked(sendInvitationEmail).mockRejectedValueOnce(new Error("Resend error"));
+
+    const targetEmail = `target-${randomUUID()}@example.com`;
+    await expect(createInvitationForFirm(firm.id, targetEmail)).rejects.toBeInstanceOf(
+      InvitationEmailError,
+    );
+
+    // The invitation row is already committed (see the service's comment on
+    // this ordering); the owner can see and revoke it from the list.
+    const rows = await db
+      .select({ email: firmInvitations.email, revokedAt: firmInvitations.revokedAt })
+      .from(firmInvitations)
+      .where(eq(firmInvitations.firmId, firm.id));
+    expect(rows).toEqual([expect.objectContaining({ email: targetEmail, revokedAt: null })]);
   });
 });

@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 
+import { FlashCleanup } from "@/app/flash-cleanup";
 import {
   FirmForbiddenError,
   FirmNotFoundError,
@@ -41,10 +42,12 @@ export default async function FirmInvitationsPage({
   searchParams,
 }: {
   params: Promise<{ firmId: string }>;
-  searchParams: Promise<{ invited?: string }>;
+  searchParams: Promise<{ invited?: string; error?: string }>;
 }) {
   const { firmId } = await params;
-  const invitedUrl = sanitizeInvitedUrl((await searchParams).invited);
+  const resolvedSearchParams = await searchParams;
+  const invitedUrl = sanitizeInvitedUrl(resolvedSearchParams.invited);
+  const errorMessage = resolvedSearchParams.error;
   let invitations;
   try {
     invitations = await listInvitationsForFirm(firmId);
@@ -62,8 +65,15 @@ export default async function FirmInvitationsPage({
   return (
     <main className={styles.page}>
       <section className={styles.card}>
+        <FlashCleanup active={Boolean(invitedUrl || errorMessage)} />
         <p className={styles.eyebrow}>Firm workspace</p>
         <h1>Invitations</h1>
+
+        {errorMessage ? (
+          <p className={styles.error} role="alert">
+            {errorMessage}
+          </p>
+        ) : null}
 
         {invitedUrl ? (
           <p>
