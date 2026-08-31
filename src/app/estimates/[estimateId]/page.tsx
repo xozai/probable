@@ -6,6 +6,7 @@ import { updateEstimateAction } from "@/app/projects/actions";
 import { listLineItems } from "@/line-items/service";
 import { EstimateNotFoundError, getEstimate } from "@/projects/service";
 import { ESTIMATE_MILESTONES } from "@/projects/types";
+import { listEstimateSections } from "@/sections/service";
 
 import { LineItemGrid } from "./line-items/line-item-grid";
 import styles from "../../firms/workspace.module.css";
@@ -14,9 +15,13 @@ export default async function EstimatePage({ params }: { params: Promise<{ estim
   const { estimateId } = await params;
   let row;
   let lineItems;
+  let sections;
   try {
     row = await getEstimate(estimateId);
-    lineItems = await listLineItems(estimateId);
+    [lineItems, sections] = await Promise.all([
+      listLineItems(estimateId),
+      listEstimateSections(estimateId),
+    ]);
   } catch (error) {
     if (error instanceof EstimateNotFoundError) notFound();
     if (error instanceof UnauthorizedError) redirect(`/sign-in?callbackUrl=/estimates/${estimateId}`);
@@ -35,6 +40,11 @@ export default async function EstimatePage({ params }: { params: Promise<{ estim
     </form>
     <p><Link href={`/projects/${row.project.id}`}>Back to project</Link></p>
   </section>
-  <LineItemGrid estimateId={estimateId} initialItems={lineItems} />
+  <LineItemGrid
+    estimateId={estimateId}
+    initialItems={lineItems}
+    sections={sections}
+    contingencyPct={row.estimate.contingencyPct}
+  />
   </main>;
 }

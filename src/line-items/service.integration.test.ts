@@ -2,7 +2,14 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { db } from "../db/client";
-import { estimates, firmMembers, firms, projects, users } from "../db/schema";
+import {
+  estimates,
+  estimateSections,
+  firmMembers,
+  firms,
+  projects,
+  users,
+} from "../db/schema";
 
 let allowedFirmId = "";
 vi.mock("../auth/authorization", async () => {
@@ -37,6 +44,8 @@ describeWithDatabase("line item manual and TSV-paste grid", () => {
   let secondFirmId = "";
   let estimateId = "";
   let otherEstimateId = "";
+  let estimateSectionId = "";
+  let otherEstimateSectionId = "";
 
   beforeAll(async () => {
     const [user] = await db.insert(users).values({ email: `line-items-${suffix}@example.test` }).returning();
@@ -70,6 +79,18 @@ describeWithDatabase("line item manual and TSV-paste grid", () => {
     if (!estimate || !otherEstimate) throw new Error("Test estimate creation failed");
     estimateId = estimate.id;
     otherEstimateId = otherEstimate.id;
+    const createdSections = await db
+      .insert(estimateSections)
+      .values([
+        { estimateId, name: "Earthwork", sort: 0 },
+        { estimateId: otherEstimateId, name: "Secret", sort: 0 },
+      ])
+      .returning({ id: estimateSections.id });
+    if (!createdSections[0] || !createdSections[1]) {
+      throw new Error("Test section creation failed");
+    }
+    estimateSectionId = createdSections[0].id;
+    otherEstimateSectionId = createdSections[1].id;
   });
 
   afterAll(async () => {
@@ -99,6 +120,54 @@ describeWithDatabase("line item manual and TSV-paste grid", () => {
       LineItemNotFoundError,
     );
     await expect(deleteLineItem(estimateId, second.id)).rejects.toBeInstanceOf(LineItemNotFoundError);
+  });
+
+  it("persists manual prices and only sections from the same estimate", async () => {
+    const created = await addLineItem(estimateId, {
+      description: "Priced excavation",
+      quantity: "2.5",
+      unit: "CY",
+      unitPrice: "12.34",
+      sectionId: estimateSectionId,
+    });
+    expect(created).toMatchObject({
+      sectionId: estimateSectionId,
+      unitPrice: "12.34",
+      priceSource: "manual",
+      matchStatus: "manual",
+    });
+
+    const beforeInvalidAdd = await listLineItems(estimateId);
+    await expect(
+      addLineItem(estimateId, {
+        description: "Cross-estimate section",
+        quantity: "1",
+        unit: "EA",
+        unitPrice: "1.00",
+        sectionId: otherEstimateSectionId,
+      }),
+    ).rejects.toMatchObject({ message: "Section is not part of this estimate" });
+    await expect(listLineItems(estimateId)).resolves.toHaveLength(
+      beforeInvalidAdd.length,
+    );
+
+    await expect(
+      updateLineItem(estimateId, created.id, {
+        description: created.description,
+        quantity: created.quantity,
+        unit: created.unit,
+        unitPrice: created.unitPrice,
+        sectionId: otherEstimateSectionId,
+      }),
+    ).rejects.toMatchObject({ message: "Section is not part of this estimate" });
+    await expect(listLineItems(estimateId)).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: created.id,
+          sectionId: estimateSectionId,
+        }),
+      ]),
+    );
   });
 
   it("creates exactly the pasted rows on a valid TSV paste (T-AC3-01)", async () => {

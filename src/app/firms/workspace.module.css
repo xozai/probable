@@ -6,7 +6,7 @@
 }
 
 .card {
-  width: min(42rem, 100%);
+  width: min(64rem, 100%);
   padding: clamp(2rem, 6vw, 4rem);
   border: 1px solid #ccd8ce;
   border-radius: 1.25rem;
@@ -105,4 +105,50 @@
 
 .primaryLink {
   margin-top: 1.5rem;
+}
+
+.card table {
+  width: 100%;
+  margin-top: 1rem;
+  border-collapse: collapse;
+}
+
+.card th,
+.card td {
+  padding: 0.6rem 0.4rem;
+  border-bottom: 1px solid #e6e1d8;
+  text-align: left;
+}
+
+.card td input,
+.card td select {
+  width: 100%;
+  min-width: 6rem;
+  padding: 0.45rem;
+  border: 1px solid #9aaba0;
+  border-radius: 0.35rem;
+  font: inherit;
+}
+
+.totals {
+  margin-top: 2rem;
+  padding: 1.25rem;
+  border-radius: 0.75rem;
+  background: #f4f7f4;
+}
+
+.totals dl {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.totals dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.totals dd {
+  font-variant-numeric: tabular-nums;
 }

@@ -8,7 +8,12 @@ describe("parseTsvPaste", () => {
     const { rows, errors } = parseTsvPaste(text);
     expect(errors).toEqual([]);
     expect(rows).toHaveLength(3);
-    expect(rows[0]?.row).toEqual({ description: "Excavation", quantity: "120.000", unit: "CY" });
+    expect(rows[0]?.row).toEqual({
+      description: "Excavation",
+      quantity: "120.000",
+      unit: "CY",
+      unitPrice: null,
+    });
   });
 
   it("ignores blank lines", () => {
