@@ -2,7 +2,14 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { db } from "../../../../db/client";
-import { estimates, firmMembers, firms, projects, users } from "../../../../db/schema";
+import {
+  estimates,
+  estimateSections,
+  firmMembers,
+  firms,
+  projects,
+  users,
+} from "../../../../db/schema";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
@@ -24,7 +31,7 @@ import { addLineItemAction, updateLineItemAction } from "./actions";
 
 const describeWithDatabase = process.env.DATABASE_URL ? describe : describe.skip;
 
-describeWithDatabase("line-item server actions reject client-supplied sectionId", () => {
+describeWithDatabase("line-item server actions validate section assignment", () => {
   const suffix = crypto.randomUUID();
   let userId = "";
   let firmId = "";
@@ -52,11 +59,17 @@ describeWithDatabase("line-item server actions reject client-supplied sectionId"
     if (!estimate) throw new Error("Test estimate creation failed");
     estimateId = estimate.id;
 
-    // A UUID that resolves to a real estimate_sections-shaped row via a
-    // different, unrelated estimate would require #10's tables; a random
-    // UUID is sufficient here since the attack is "does this field flow
-    // through at all", not "does the FK accept it".
-    otherEstimateSectionId = crypto.randomUUID();
+    const [otherEstimate] = await db
+      .insert(estimates)
+      .values({ projectId: project.id, milestone: "60", revision: 1, contingencyPct: "10" })
+      .returning();
+    if (!otherEstimate) throw new Error("Other estimate creation failed");
+    const [otherSection] = await db
+      .insert(estimateSections)
+      .values({ estimateId: otherEstimate.id, name: "Other estimate section", sort: 0 })
+      .returning();
+    if (!otherSection) throw new Error("Other estimate section creation failed");
+    otherEstimateSectionId = otherSection.id;
   });
 
   afterAll(async () => {
@@ -64,34 +77,41 @@ describeWithDatabase("line-item server actions reject client-supplied sectionId"
     if (userId) await db.delete(users).where(eq(users.id, userId));
   });
 
-  it("ignores a forged sectionId on add, regardless of the TypeScript input type", async () => {
-    const forgedInput = {
+  it("rejects a section from another estimate on add", async () => {
+    const result = await addLineItemAction(estimateId, {
       description: "Excavation",
       quantity: "120",
       unit: "CY",
       sectionId: otherEstimateSectionId,
-    } as unknown as { description: string; quantity: string; unit: string };
-
-    const result = await addLineItemAction(estimateId, forgedInput);
-    expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error("expected success");
-    expect(result.data.sectionId).toBeNull();
+    });
+    expect(result).toEqual({
+      ok: false,
+      error: "Section is not part of this estimate",
+    });
   });
 
-  it("ignores a forged sectionId on update, regardless of the TypeScript input type", async () => {
+  it("rejects a section from another estimate on update without mutating the row", async () => {
     const created = await addLineItemAction(estimateId, { description: "Base course", quantity: "10", unit: "SY" });
     if (!created.ok) throw new Error("expected success");
 
-    const forgedInput = {
+    const result = await updateLineItemAction(estimateId, created.data.id, {
       description: "Base course, revised",
       quantity: "12",
       unit: "SY",
       sectionId: otherEstimateSectionId,
-    } as unknown as { description: string; quantity: string; unit: string };
+    });
+    expect(result).toEqual({
+      ok: false,
+      error: "Section is not part of this estimate",
+    });
 
-    const result = await updateLineItemAction(estimateId, created.data.id, forgedInput);
-    expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error("expected success");
-    expect(result.data.sectionId).toBeNull();
+    const listed = await import("../../../../line-items/service").then(({ listLineItems }) =>
+      listLineItems(estimateId),
+    );
+    expect(listed).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: created.data.id, sectionId: null }),
+      ]),
+    );
   });
 });

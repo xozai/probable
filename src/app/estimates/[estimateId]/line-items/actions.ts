@@ -35,6 +35,14 @@ interface LineItemRow {
   unitPrice: string | null;
 }
 
+interface EditableLineItemInput {
+  description: string;
+  quantity: string;
+  unit: string;
+  unitPrice?: string | null;
+  sectionId?: string | null;
+}
+
 function toDTO(row: LineItemRow): LineItemDTO {
   return {
     id: row.id,
@@ -63,7 +71,7 @@ export async function listLineItemsAction(estimateId: string): Promise<ActionRes
 
 export async function addLineItemAction(
   estimateId: string,
-  input: { description: string; quantity: string; unit: string },
+  input: EditableLineItemInput,
 ): Promise<ActionResult<LineItemDTO>> {
   try {
     // Server actions are network-callable RPC endpoints: a forged request
@@ -74,6 +82,8 @@ export async function addLineItemAction(
       description: input.description,
       quantity: input.quantity,
       unit: input.unit,
+      unitPrice: input.unitPrice ?? null,
+      sectionId: input.sectionId ?? null,
     });
     revalidatePath(`/estimates/${estimateId}`);
     return { ok: true, data: toDTO(row) };
@@ -86,13 +96,15 @@ export async function addLineItemAction(
 export async function updateLineItemAction(
   estimateId: string,
   lineItemId: string,
-  input: { description: string; quantity: string; unit: string },
+  input: EditableLineItemInput,
 ): Promise<ActionResult<LineItemDTO>> {
   try {
     const row = await updateLineItem(estimateId, lineItemId, {
       description: input.description,
       quantity: input.quantity,
       unit: input.unit,
+      unitPrice: input.unitPrice ?? null,
+      sectionId: input.sectionId ?? null,
     });
     revalidatePath(`/estimates/${estimateId}`);
     return { ok: true, data: toDTO(row) };

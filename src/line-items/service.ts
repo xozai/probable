@@ -7,7 +7,7 @@ import { EstimateNotFoundError } from "../projects/service";
 import * as repository from "./repository";
 import { parseTsvPaste, type PasteRowError } from "./tsv";
 import type { LineItemRowInput } from "./types";
-import { validateLineItemRow } from "./validation";
+import { LineItemValidationError, validateLineItemRow } from "./validation";
 
 export class LineItemNotFoundError extends Error {
   readonly status = 404;
@@ -47,6 +47,24 @@ async function loadEstimateForMember(estimateId: string) {
   return row;
 }
 
+async function validateSectionAssignment(
+  estimateId: string,
+  sectionId: string | null | undefined,
+) {
+  if (!sectionId) return null;
+  if (!isFirmId(sectionId)) {
+    throw new LineItemValidationError("Section is not part of this estimate");
+  }
+  const belongsToEstimate = await repository.estimateHasSection(db, {
+    estimateId,
+    sectionId,
+  });
+  if (!belongsToEstimate) {
+    throw new LineItemValidationError("Section is not part of this estimate");
+  }
+  return sectionId;
+}
+
 export async function listLineItems(estimateId: string) {
   await loadEstimateForMember(estimateId);
   return repository.listLineItemRows(db, estimateId);
@@ -55,10 +73,11 @@ export async function listLineItems(estimateId: string) {
 export async function addLineItem(estimateId: string, input: LineItemRowInput) {
   const { estimate } = await loadEstimateForMember(estimateId);
   const values = validateLineItemRow(input);
+  const sectionId = await validateSectionAssignment(estimateId, input.sectionId);
   return repository.insertLineItem(db, {
     projectId: estimate.projectId,
     estimateId,
-    sectionId: input.sectionId ?? null,
+    sectionId,
     ...values,
   });
 }
@@ -66,10 +85,11 @@ export async function addLineItem(estimateId: string, input: LineItemRowInput) {
 export async function updateLineItem(estimateId: string, lineItemId: string, input: LineItemRowInput) {
   await loadEstimateForMember(estimateId);
   const values = validateLineItemRow(input);
+  const sectionId = await validateSectionAssignment(estimateId, input.sectionId);
   const updated = await repository.updateLineItemRow(db, {
     id: lineItemId,
     estimateId,
-    sectionId: input.sectionId ?? null,
+    sectionId,
     ...values,
   });
   if (!updated) throw new LineItemNotFoundError();

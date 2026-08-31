@@ -1,7 +1,7 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 
 import { db } from "../db/client";
-import { costItems, lineItems } from "../db/schema";
+import { costItems, estimateSections, lineItems } from "../db/schema";
 import type { ValidatedLineItemRow } from "./validation";
 
 type Database = typeof db;
@@ -13,6 +13,23 @@ export async function listLineItemRows(database: Database, estimateId: string) {
     .from(lineItems)
     .where(eq(lineItems.estimateId, estimateId))
     .orderBy(asc(lineItems.sort));
+}
+
+export async function estimateHasSection(
+  database: Database,
+  params: { estimateId: string; sectionId: string },
+): Promise<boolean> {
+  const [row] = await database
+    .select({ id: estimateSections.id })
+    .from(estimateSections)
+    .where(
+      and(
+        eq(estimateSections.id, params.sectionId),
+        eq(estimateSections.estimateId, params.estimateId),
+      ),
+    )
+    .limit(1);
+  return Boolean(row);
 }
 
 async function nextSort(tx: Tx, estimateId: string): Promise<number> {
@@ -51,6 +68,12 @@ async function insertRow(
       description: params.description,
       quantity: params.quantity,
       unit: params.unit,
+      unitPrice: params.unitPrice,
+      priceSource: params.unitPrice === null ? null : "manual",
+      priceEntryId: null,
+      priceProvenance: null,
+      matchConfidence: null,
+      matchStatus: params.unitPrice === null ? "unpriced" : "manual",
     })
     .returning();
   if (!lineItem) throw new Error("line item insert did not return a row");
@@ -88,6 +111,12 @@ export async function updateLineItemRow(
       description: params.description,
       quantity: params.quantity,
       unit: params.unit,
+      unitPrice: params.unitPrice,
+      priceSource: params.unitPrice === null ? null : "manual",
+      priceEntryId: null,
+      priceProvenance: null,
+      matchConfidence: null,
+      matchStatus: params.unitPrice === null ? "unpriced" : "manual",
     })
     .where(and(eq(lineItems.id, params.id), eq(lineItems.estimateId, params.estimateId)))
     .returning();
