@@ -3,7 +3,8 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import { getFirmMembership } from "../auth/firm-membership";
 import { db } from "../db/client";
-import { firmMembers, firms, users } from "../db/schema";
+import { firmMembers, firms, firmSectionTemplates, users } from "../db/schema";
+import { DEFAULT_SECTION_NAMES } from "../sections/defaults";
 
 import { createFirmForUser } from "./repository";
 
@@ -44,6 +45,13 @@ describeWithDatabase("firm creation and membership", () => {
       role: "owner",
     });
     await expect(getFirmMembership(outsiderId, firmId)).resolves.toBeNull();
+    await expect(
+      db
+        .select({ name: firmSectionTemplates.name })
+        .from(firmSectionTemplates)
+        .where(eq(firmSectionTemplates.firmId, firmId))
+        .orderBy(firmSectionTemplates.sort),
+    ).resolves.toEqual(DEFAULT_SECTION_NAMES.map((name) => ({ name })));
   });
 
   it("returns a member role without granting owner authority", async () => {

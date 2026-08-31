@@ -2,7 +2,12 @@ import { and, asc, eq } from "drizzle-orm";
 
 import { FirmNotFoundError, isFirmId, requireFirmMember } from "../auth/authorization";
 import { db } from "../db/client";
-import { estimates, projects } from "../db/schema";
+import {
+  estimates,
+  estimateSections,
+  firmSectionTemplates,
+  projects,
+} from "../db/schema";
 import type { EstimateInput, ProjectInput } from "./types";
 import { validateEstimateInput, validateProjectInput } from "./validation";
 
@@ -102,12 +107,32 @@ export async function updateProject(projectId: string, input: ProjectInput) {
 }
 
 export async function createEstimate(projectId: string, input: EstimateInput) {
-  await loadProjectForMember(projectId);
+  const project = await loadProjectForMember(projectId);
   const values = validateEstimateInput(input);
   try {
-    const [estimate] = await db.insert(estimates).values({ projectId, ...values }).returning();
-    if (!estimate) throw new Error("Estimate insert did not return a row");
-    return estimate;
+    return await db.transaction(async (tx) => {
+      const [estimate] = await tx
+        .insert(estimates)
+        .values({ projectId, ...values })
+        .returning();
+      if (!estimate) throw new Error("Estimate insert did not return a row");
+
+      const templates = await tx
+        .select({ name: firmSectionTemplates.name, sort: firmSectionTemplates.sort })
+        .from(firmSectionTemplates)
+        .where(eq(firmSectionTemplates.firmId, project.firmId))
+        .orderBy(asc(firmSectionTemplates.sort));
+      if (templates.length) {
+        await tx.insert(estimateSections).values(
+          templates.map((template) => ({
+            estimateId: estimate.id,
+            name: template.name,
+            sort: template.sort,
+          })),
+        );
+      }
+      return estimate;
+    });
   } catch (error) {
     if (isUniqueViolation(error)) throw new DuplicateEstimateError();
     throw error;

@@ -1,5 +1,6 @@
 import { db } from "../db/client";
-import { firmMembers, firms } from "../db/schema";
+import { firmMembers, firms, firmSectionTemplates } from "../db/schema";
+import { DEFAULT_SECTION_NAMES } from "../sections/defaults";
 import type { FirmSummary } from "./service-types";
 import { validateFirmName } from "./validation";
 
@@ -21,6 +22,14 @@ export async function createFirmForUser(
       userId,
       role: "owner",
     });
+
+    await tx.insert(firmSectionTemplates).values(
+      DEFAULT_SECTION_NAMES.map((sectionName, sort) => ({
+        firmId: firm.id,
+        name: sectionName,
+        sort,
+      })),
+    );
 
     return { ...firm, role: "owner" as const };
   });

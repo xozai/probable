@@ -59,7 +59,8 @@
 }
 
 .form input,
-.form select {
+.form select,
+.form textarea {
   min-height: 2.75rem;
   padding: 0 0.75rem;
   border: 1px solid #9aaba0;

@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { FirmNotFoundError } from "../auth/authorization-policy";
 import { db } from "../db/client";
-import { firmMembers, firms, users } from "../db/schema";
+import { firmMembers, firms, firmSectionTemplates, users } from "../db/schema";
 
 let allowedFirmId = "";
 vi.mock("../auth/authorization", async () => {
@@ -14,8 +14,18 @@ vi.mock("../auth/authorization", async () => {
       if (firmId !== allowedFirmId) throw new policy.FirmNotFoundError();
       return { userId: "test-user", email: "member@example.test", firmId, role: "member" as const };
     }),
+    requireFirmOwner: vi.fn(async (firmId: string) => {
+      if (firmId !== allowedFirmId) throw new policy.FirmNotFoundError();
+      return { userId: "test-user", email: "owner@example.test", firmId, role: "owner" as const };
+    }),
   };
 });
+
+import {
+  listEstimateSections,
+  listFirmSectionTemplates,
+  replaceFirmSectionTemplates,
+} from "../sections/service";
 
 import {
   createEstimate,
@@ -75,6 +85,44 @@ describeWithDatabase("project and estimate CRUD", () => {
     expect(second.revision).toBe(2);
     await expect(updateEstimate(second.id, { milestone: "60", revision: 1, label: "Issued", contingencyPct: "9" })).resolves.toMatchObject({ milestone: "60", label: "Issued" });
     await expect(getEstimate(first.id)).resolves.toMatchObject({ project: { id: project.id }, estimate: { id: first.id } });
+  });
+
+  it("snapshots ordered firm defaults without mutating existing estimates", async () => {
+    await db.insert(firmSectionTemplates).values([
+      { firmId: firstFirmId, name: "Earthwork", sort: 0 },
+      { firmId: firstFirmId, name: "Paving", sort: 1 },
+    ]);
+    const project = await createProject(firstFirmId, { name: "Snapshot project" });
+    const first = await createEstimate(project.id, {
+      milestone: "30",
+      revision: 1,
+      contingencyPct: "10",
+    });
+
+    await expect(listEstimateSections(first.id)).resolves.toMatchObject([
+      { estimateId: first.id, name: "Earthwork", sort: 0 },
+      { estimateId: first.id, name: "Paving", sort: 1 },
+    ]);
+
+    await replaceFirmSectionTemplates(firstFirmId, ["Structures", "Drainage"]);
+    await expect(listFirmSectionTemplates(firstFirmId)).resolves.toMatchObject([
+      { firmId: firstFirmId, name: "Structures", sort: 0 },
+      { firmId: firstFirmId, name: "Drainage", sort: 1 },
+    ]);
+    await expect(listEstimateSections(first.id)).resolves.toMatchObject([
+      { estimateId: first.id, name: "Earthwork", sort: 0 },
+      { estimateId: first.id, name: "Paving", sort: 1 },
+    ]);
+
+    const second = await createEstimate(project.id, {
+      milestone: "60",
+      revision: 1,
+      contingencyPct: "10",
+    });
+    await expect(listEstimateSections(second.id)).resolves.toMatchObject([
+      { estimateId: second.id, name: "Structures", sort: 0 },
+      { estimateId: second.id, name: "Drainage", sort: 1 },
+    ]);
   });
 
   it("maps missing, malformed, and cross-firm resources to not found", async () => {
